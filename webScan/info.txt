@@ -1,0 +1,7 @@
+ if(username=="Admin" && password=="CE12Mx_553_Pks_FaceBox"){
+        alert("✔️ Giriş Başarılı")
+        window.location.href="index.html";
+    }
+    else{
+         alert("❌ Kullanıcı adı veya şifre hatalı!");
+    }

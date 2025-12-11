@@ -1,0 +1,262 @@
+<!-- index.html-->
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>✨ FaceBox ✨</title>
+<link rel="icon" href="https://cdn-icons-png.flaticon.com/512/12795/12795734.png">
+
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', Arial, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e3a8a);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+    user-select: none; /* Dokunma devre dışı */
+    pointer-events: none; /* Dokunma devre dışı */
+  }
+
+  h1,p {
+    margin-top: 30px;
+    font-size: 2.2em;
+    font-weight: 700;
+    text-shadow: 0 0 10px #3b82f6, 0 0 30px #60a5fa;
+    animation: glow 3s infinite alternate;
+  }
+
+  @keyframes glow {
+    from { text-shadow: 0 0 10px #3b82f6; }
+    to { text-shadow: 0 0 30px #60a5fa; }
+  }
+
+  #qr {
+    width: 80%;
+    max-width: 260px;
+    height: auto;
+    margin: 25px auto;
+    border-radius: 16px;
+    box-shadow: 0 0 15px rgba(59,130,246,0.6);
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+  }
+
+  #qr:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(59,130,246,0.9); }
+
+  video, canvas {
+    width: 90%;
+    max-width: 480px;
+    margin: 15px 0;
+    border-radius: 16px;
+    box-shadow: 0 0 25px rgba(59,130,246,0.3);
+  }
+
+  button {
+    background: linear-gradient(90deg, #2563eb, #60a5fa);
+    border: none;
+    padding: 14px 32px;
+    border-radius: 30px;
+    font-size: 1em;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(96,165,250,0.5);
+    pointer-events: auto; 
+  }
+
+  button:hover { transform: translateY(-3px); box-shadow: 0 0 25px rgba(96,165,250,0.9); }
+
+  .result {
+    margin: 25px auto;
+    text-align: left;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    padding: 20px;
+    width: 90%;
+    max-width: 480px;
+    border-radius: 16px;
+    box-shadow: 0 0 20px rgba(59,130,246,0.2);
+    animation: fadeIn 0.7s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  a { color: #a5f3fc; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 1.7em; }
+    button { padding: 12px 24px; font-size: 0.95em; }
+    #qr { width: 70%; }
+  }
+
+  #loader {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto; 
+  }
+
+  #loader div {
+    border: 6px solid rgba(255,255,255,0.2);
+    border-top: 6px solid #60a5fa;
+    border-radius: 50%;
+    width: 70px;
+    height: 70px;
+    animation: spin 1s linear infinite, pulse 2s infinite ease-in-out;
+  }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 15px #60a5fa; }
+    50% { box-shadow: 0 0 35px #3b82f6; }
+  }
+</style>
+</head>
+
+<body>
+<h1 style="font-size:55px;">
+  <center>
+    <img src="https://cdn-icons-png.flaticon.com/64/12795/12795734.png" alt="">
+    FaceBox'a Hoşgeldiniz✨
+  </center>
+   </h1>
+
+<img id="qr" src="downloads/qr_code.png" alt="QR Kod" />
+
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" style="display:none;"></canvas>
+
+<div id="buttons">
+  <button id="captureBtn" style="display:none;">📸 Yüzü Tara</button>
+  <button id="fileBtn" style="display:none;">📁 Resim Seç</button>
+</div>
+
+<div id="results" class="result"></div>
+
+<div id="loader"><div></div></div>
+
+
+
+<script>
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const resultsDiv = document.getElementById("results");
+const loader = document.getElementById("loader");
+const captureBtn = document.getElementById("captureBtn");
+const fileBtn = document.getElementById("fileBtn");
+
+
+function speak(text) {
+  if ('speechSynthesis' in window) {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'tr-TR'; utter.pitch=1; utter.rate=1;
+    window.speechSynthesis.speak(utter);
+  }
+}
+
+function showLoader(state) {
+  loader.style.display = state ? "flex" : "none";
+  document.body.style.pointerEvents = state ? "none" : "auto";
+}
+
+
+async function initCamera() {
+  showLoader(true);
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    captureBtn.style.display = "inline-block";
+    fileBtn.style.display = "inline-block";
+    speak("Kamera bulundu. Yüz taramasına hazırsınız.");
+  } catch(err) {
+    fileBtn.style.display = "inline-block";
+    speak("Kamera bulunamadı. Resim dosyası seçerek tarama yapabilirsiniz.");
+  } finally {
+    showLoader(false);
+  }
+}
+
+
+fileBtn.addEventListener("click", () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = handleFile;
+  input.click();
+});
+
+async function handleFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => await sendToServer(e.target.result);
+  reader.readAsDataURL(file);
+}
+
+
+captureBtn.addEventListener("click", async () => {
+  showLoader(true);
+  speak("Kamera taraması başlatıldı.");
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataURL = canvas.toDataURL("image/png");
+
+  await sendToServer(dataURL);
+});
+
+
+async function sendToServer(imageData) {
+  showLoader(true);
+  try {
+    const response = await fetch("/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imageData })
+    });
+    const data = await response.json();
+    showLoader(false);
+
+    if(data.error){
+      resultsDiv.innerHTML = `<p style="color:red">${data.error}</p>`;
+      speak("Bir hata oluştu, lütfen tekrar deneyin.");
+      return;
+    }
+
+    speak(`Tarama tamamlandı. ${data.faces_count} yüz algılandı.`);
+
+    let html = `<p><b>Yüz Sayısı:</b> ${data.faces_count}</p>`;
+    data.results.forEach(r=>{
+      html += `<p>👤 <b>Face ${r.face}:</b> Yaş Aralığı = ${r.age_range}, Cinsiyet = ${r.gender}
+               - <a href="/downloads/${r.txt_file}" target="_blank">TXT İndir</a></p>`;
+    });
+    html += `<p><a href="/downloads/${data.image_file}" target="_blank">📷 Görüntüyü İndir</a></p>`;
+    resultsDiv.innerHTML = html;
+
+  } catch(err){
+    showLoader(false);
+    resultsDiv.innerHTML = `<p style="color:red">Sunucu hatası: ${err}</p>`;
+    speak("Sunucu hatası oluştu. Bağlantıyı kontrol edin.");
+  }
+}
+
+
+initCamera();
+</script>
+</body>
+</html>
